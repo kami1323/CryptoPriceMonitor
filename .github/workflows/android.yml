@@ -18,6 +18,9 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
     
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+    
     - name: Make gradlew executable
       run: chmod +x ./gradlew
     
@@ -25,6 +28,12 @@ jobs:
       run: |
         echo "Project structure:"
         ls -la
+        
+    - name: Setup local.properties
+      run: |
+        echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+        echo "Local properties created:"
+        cat local.properties
         
     - name: Check gradle files
       run: |
@@ -39,7 +48,7 @@ jobs:
         cat settings.gradle || echo "No settings.gradle found"
         
     - name: Build debug APK
-      run: ./gradlew assembleDebug
+      run: ./gradlew assembleDebug --stacktrace
       
     - name: Upload APK
       uses: actions/upload-artifact@v3
@@ -47,6 +56,7 @@ jobs:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
         if-no-files-found: warn
+        retention-days: 14
         
     - name: Build Status Report
       run: |
