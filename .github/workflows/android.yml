@@ -1,4 +1,4 @@
-name: Simple CI
+name: Basic CI
 
 on:
   push:
@@ -12,15 +12,15 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
-    - name: Create simple file
+    - name: Run simple commands
       run: |
-        mkdir -p artifact
-        echo "This is a simple file created by GitHub Actions" > artifact/simple.txt
-        echo "Project: CryptoPriceMonitor" >> artifact/simple.txt
-        echo "Date: $(date)" >> artifact/simple.txt
+        echo "Hello from GitHub Actions!"
+        echo "Repository: $GITHUB_REPOSITORY"
+        echo "Branch: $GITHUB_REF"
+        echo "Current directory: $(pwd)"
+        ls -la
         
-    - name: Upload artifact
-      uses: actions/upload-artifact@v1
-      with:
-        name: simple-artifact
-        path: artifact
+    - name: Display project structure
+      run: |
+        echo "Project structure:"
+        find . -type f -name "*.md" | sort
