@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Crypto Alerts</string>
+    <string name="enter_crypto_name">Enter cryptocurrency name</string>
+    <string name="enter_alert_price">Enter alert price</string>
+    <string name="save_alert">Save Alert</string>
+    <string name="saved_alerts">Saved Alerts</string>
+    <string name="no_alerts">No alerts saved yet</string>
+</resources>
