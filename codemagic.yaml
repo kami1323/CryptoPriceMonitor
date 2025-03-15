@@ -6,8 +6,18 @@ workflows:
     environment:
       java: 17
     scripts:
+      - name: Check working directory and environment
+        script: |
+          pwd
+          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+          ls -la
       - name: Set up local properties
-        script: echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/local.properties"
+        script: echo "sdk.dir=$ANDROID_SDK_ROOT" > "./local.properties"
+        # Also verify the file was created
+      - name: Verify local.properties
+        script: |
+          ls -la
+          cat ./local.properties
       - name: Set executable permission for gradlew
         script: chmod +x ./gradlew
       - name: Build debug APK
