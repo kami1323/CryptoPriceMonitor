@@ -1,133 +1,118 @@
 package com.example.cryptoalerts.repository
 
+import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log
 import com.example.cryptoalerts.api.BinanceApiService
 import com.example.cryptoalerts.model.CryptoCurrency
 import com.example.cryptoalerts.model.PriceAlert
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.concurrent.ConcurrentHashMap
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
-class CryptoRepository {
-    private val binanceApi = BinanceApiService.create()
+class CryptoRepository(private val context: Context) {
+
+    private val TAG = "CryptoRepository"
+    private val ALERTS_PREF_KEY = "price_alerts"
+    private val PREFS_NAME = "crypto_alerts_prefs"
     
-    // In-memory cache of all cryptocurrencies
-    private val cryptoCache = ConcurrentHashMap<String, CryptoCurrency>()
+    private val sharedPreferences: SharedPreferences by lazy {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
     
-    // In-memory storage for alerts
-    private val alerts = mutableListOf<PriceAlert>()
+    private val gson = Gson()
     
-    // Function to search cryptocurrencies by name or symbol
-    suspend fun searchCryptoCurrency(query: String): List<CryptoCurrency> = withContext(Dispatchers.IO) {
-        try {
-            if (cryptoCache.isEmpty()) {
-                // If cache is empty, fetch all tickers
-                val response = binanceApi.getAll24hTickers()
+    private val binanceApi by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://api.binance.com/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(BinanceApiService::class.java)
+    }
+    
+    suspend fun getCryptoPriceData(symbol: String): CryptoCurrency? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = binanceApi.get24HrTickerPriceChange(symbol)
                 if (response.isSuccessful) {
-                    response.body()?.forEach { ticker ->
-                        if (ticker.symbol.endsWith("USDT")) {
-                            // Only add USDT pairs for simplicity
-                            val symbol = ticker.symbol.removeSuffix("USDT")
-                            val price = ticker.lastPrice.toDoubleOrNull() ?: 0.0
-                            val priceChangePercent = ticker.priceChangePercent.toDoubleOrNull() ?: 0.0
-                            
-                            cryptoCache[ticker.symbol] = CryptoCurrency(
-                                symbol = symbol,
-                                name = symbol, // Using symbol as name for now
-                                price = price,
-                                priceChangePercent = priceChangePercent
-                            )
-                        }
+                    response.body()?.let {
+                        CryptoCurrency(
+                            symbol = it.symbol,
+                            price = it.lastPrice.toDoubleOrNull() ?: 0.0,
+                            priceChangePercent = it.priceChangePercent.toDoubleOrNull() ?: 0.0,
+                            volume = it.volume.toDoubleOrNull() ?: 0.0
+                        )
                     }
+                } else {
+                    Log.e(TAG, "Error fetching data: ${response.code()} - ${response.message()}")
+                    null
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception when fetching price data", e)
+                null
             }
-            
-            // Filter cached cryptocurrencies by query
-            return@withContext cryptoCache.values.filter { 
-                it.symbol.contains(query, ignoreCase = true) || 
-                it.name.contains(query, ignoreCase = true)
-            }.take(5)  // Limit results to 5
-        } catch (e: Exception) {
-            // In case of error, return empty list
-            return@withContext emptyList<CryptoCurrency>()
         }
     }
     
-    // Function to get current price and 24h change for a specific symbol
-    suspend fun getCryptoCurrencyDetails(symbol: String): CryptoCurrency? = withContext(Dispatchers.IO) {
-        try {
-            val fullSymbol = "${symbol}USDT"
-            val tickerResponse = binanceApi.get24hTicker(fullSymbol)
-            
-            if (tickerResponse.isSuccessful) {
-                val ticker = tickerResponse.body()!!
-                val price = ticker.lastPrice.toDoubleOrNull() ?: 0.0
-                val priceChangePercent = ticker.priceChangePercent.toDoubleOrNull() ?: 0.0
-                
-                val crypto = CryptoCurrency(
-                    symbol = symbol,
-                    name = symbol, // Using symbol as name
-                    price = price,
-                    priceChangePercent = priceChangePercent
-                )
-                
-                // Update cache
-                cryptoCache[fullSymbol] = crypto
-                
-                return@withContext crypto
+    suspend fun getAllTickers(): List<CryptoCurrency> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = binanceApi.getAllTickers()
+                if (response.isSuccessful) {
+                    response.body()?.map {
+                        CryptoCurrency(
+                            symbol = it.symbol,
+                            price = it.lastPrice.toDoubleOrNull() ?: 0.0,
+                            priceChangePercent = it.priceChangePercent.toDoubleOrNull() ?: 0.0,
+                            volume = it.volume.toDoubleOrNull() ?: 0.0
+                        )
+                    } ?: emptyList()
+                } else {
+                    Log.e(TAG, "Error fetching all tickers: ${response.code()} - ${response.message()}")
+                    emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception when fetching all tickers", e)
+                emptyList()
             }
-            
-            return@withContext null
-        } catch (e: Exception) {
-            // In case of error, return null
-            return@withContext null
         }
     }
     
-    // Function to save an alert
+    // Price Alert functions
+    
     fun saveAlert(alert: PriceAlert) {
-        // Only keep 10 most recent alerts
-        if (alerts.size >= 10) {
-            alerts.removeAt(0)
+        val alerts = getAlerts().toMutableList()
+        // Replace if same ID exists, otherwise add
+        val index = alerts.indexOfFirst { it.id == alert.id }
+        if (index >= 0) {
+            alerts[index] = alert
+        } else {
+            alerts.add(alert)
         }
-        alerts.add(alert)
+        saveAlerts(alerts)
     }
     
-    // Function to get all saved alerts
-    fun getAlerts(): List<PriceAlert> = alerts.toList()
+    fun deleteAlert(alertId: String) {
+        val alerts = getAlerts().filterNot { it.id == alertId }
+        saveAlerts(alerts)
+    }
     
-    // Function to update prices for all alerts
-    suspend fun updateAlertPrices(): List<PriceAlert> = withContext(Dispatchers.IO) {
-        try {
-            alerts.forEach { alert ->
-                val fullSymbol = "${alert.cryptoSymbol}USDT"
-                val tickerResponse = binanceApi.get24hTicker(fullSymbol)
-                
-                if (tickerResponse.isSuccessful) {
-                    val ticker = tickerResponse.body()!!
-                    alert.currentPrice = ticker.lastPrice.toDoubleOrNull() ?: alert.currentPrice
-                    alert.priceChangePercent = ticker.priceChangePercent.toDoubleOrNull() ?: alert.priceChangePercent
-                }
-            }
-            
-            return@withContext alerts.toList()
+    fun getAlerts(): List<PriceAlert> {
+        val alertsJson = sharedPreferences.getString(ALERTS_PREF_KEY, null) ?: return emptyList()
+        val type = object : TypeToken<List<PriceAlert>>() {}.type
+        return try {
+            gson.fromJson(alertsJson, type)
         } catch (e: Exception) {
-            return@withContext alerts.toList()
+            Log.e(TAG, "Error parsing alerts from SharedPreferences", e)
+            emptyList()
         }
     }
     
-    // Function to check which alerts have been triggered
-    suspend fun checkAlertsTriggered(): List<PriceAlert> = withContext(Dispatchers.IO) {
-        val triggeredAlerts = mutableListOf<PriceAlert>()
-        
-        updateAlertPrices()
-        
-        alerts.forEach { alert ->
-            if (!alert.isTriggered && alert.isPriceThresholdCrossed()) {
-                alert.isTriggered = true
-                triggeredAlerts.add(alert)
-            }
-        }
-        
-        return@withContext triggeredAlerts
+    private fun saveAlerts(alerts: List<PriceAlert>) {
+        val alertsJson = gson.toJson(alerts)
+        sharedPreferences.edit().putString(ALERTS_PREF_KEY, alertsJson).apply()
     }
 }

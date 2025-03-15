@@ -1,22 +1,12 @@
 package com.example.cryptoalerts.model
 
+import java.util.UUID
+
 data class PriceAlert(
-    val id: String = System.currentTimeMillis().toString(), // Unique ID for the alert
-    val cryptoSymbol: String,
-    val cryptoName: String,
-    var currentPrice: Double,
-    val alertPrice: Double,
-    var priceChangePercent: Double,
-    var isTriggered: Boolean = false
-) {
-    fun isPriceThresholdCrossed(): Boolean {
-        // Check if the current price has crossed the alert price
-        return if (alertPrice > currentPrice) {
-            // Alert for price going up
-            currentPrice >= alertPrice
-        } else {
-            // Alert for price going down
-            currentPrice <= alertPrice
-        }
-    }
-}
+    val id: String = UUID.randomUUID().toString(),
+    val symbol: String,
+    val targetPrice: Double,
+    val isAboveTarget: Boolean,  // true if alert is for price going above target, false for below
+    val isActive: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis()
+)
