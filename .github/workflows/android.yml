@@ -1,4 +1,4 @@
-name: Android Build
+name: Android Build Log
 
 on:
   push:
@@ -21,22 +21,22 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x ./gradlew
     
-    - name: Build APK
-      run: ./gradlew assembleDebug --info
-      
-    - name: List generated files
+    - name: Display project structure
       run: |
-        echo "Generated files:"
-        find . -name "*.apk"
-      
-    - name: Create release folder
-      run: mkdir -p release
-    
-    - name: Copy APK to release folder
-      run: find . -name "*.apk" -exec cp {} release/ \;
-    
-    - name: Upload release
-      uses: actions/upload-artifact@v2
-      with:
-        name: app-release
-        path: release/
+        echo "Project structure:"
+        ls -la
+        
+    - name: Check gradle files
+      run: |
+        echo "Gradle files:"
+        find . -name "*.gradle" | sort
+        
+    - name: Check build files
+      run: |
+        echo "Checking build files:"
+        cat build.gradle || echo "No root build.gradle found"
+        cat app/build.gradle || echo "No app/build.gradle found"
+        cat settings.gradle || echo "No settings.gradle found"
+        
+    - name: Show README
+      run: cat README.md
