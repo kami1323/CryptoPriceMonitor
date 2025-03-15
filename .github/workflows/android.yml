@@ -1,4 +1,4 @@
-name: Basic CI
+name: Android Build
 
 on:
   push:
@@ -12,15 +12,31 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
-    - name: Run simple commands
+    - name: Setup Java
+      uses: actions/setup-java@v2
+      with:
+        distribution: 'adopt'
+        java-version: '11'
+    
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+    
+    - name: Build APK
+      run: ./gradlew assembleDebug --info
+      
+    - name: List generated files
       run: |
-        echo "Hello from GitHub Actions!"
-        echo "Repository: $GITHUB_REPOSITORY"
-        echo "Branch: $GITHUB_REF"
-        echo "Current directory: $(pwd)"
-        ls -la
-        
-    - name: Display project structure
-      run: |
-        echo "Project structure:"
-        find . -type f -name "*.md" | sort
+        echo "Generated files:"
+        find . -name "*.apk"
+      
+    - name: Create release folder
+      run: mkdir -p release
+    
+    - name: Copy APK to release folder
+      run: find . -name "*.apk" -exec cp {} release/ \;
+    
+    - name: Upload release
+      uses: actions/upload-artifact@v2
+      with:
+        name: app-release
+        path: release/
