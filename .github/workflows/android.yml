@@ -1,4 +1,4 @@
-name: Android Build Log
+name: Android Build
 
 on:
   push:
@@ -10,13 +10,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     
     - name: Setup Java
-      uses: actions/setup-java@v2
+      uses: actions/setup-java@v3
       with:
-        distribution: 'adopt'
-        java-version: '11'
+        distribution: 'temurin'
+        java-version: '17'
     
     - name: Make gradlew executable
       run: chmod +x ./gradlew
@@ -38,5 +38,17 @@ jobs:
         cat app/build.gradle || echo "No app/build.gradle found"
         cat settings.gradle || echo "No settings.gradle found"
         
-    - name: Show README
-      run: cat README.md
+    - name: Build debug APK
+      run: ./gradlew assembleDebug
+      
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+        if-no-files-found: warn
+        
+    - name: Build Status Report
+      run: |
+        echo "Build complete! The debug APK is available for download as an artifact."
+        echo "To find it, go to the 'Actions' tab, click on this workflow run, and scroll down to the 'Artifacts' section."
