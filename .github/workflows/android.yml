@@ -20,7 +20,7 @@ jobs:
         echo "Date: $(date)" >> artifact/simple.txt
         
     - name: Upload artifact
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v3
       with:
         name: simple-artifact
         path: artifact
